@@ -2,6 +2,7 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 import type { Terminal as XtermTerminalType } from "@xterm/headless";
 import { Image } from "../src/components/image.ts";
+import { Input } from "../src/components/input.ts";
 import {
 	deleteKittyImage,
 	encodeKitty,
@@ -316,6 +317,44 @@ describe("TUI Kitty image cleanup", () => {
 		assert.ok(deleteIndex >= 0, "previous image should be deleted during full redraw");
 		assert.ok(clearIndex >= 0, "full redraw should clear the screen");
 		assert.ok(deleteIndex < clearIndex, "old image should be deleted before the screen is cleared");
+
+		tui.stop();
+	});
+});
+
+describe("TUI terminal focus handling", () => {
+	it("hides and restores the fake cursor without forwarding focus events", async () => {
+		const terminal = new LoggingVirtualTerminal(40, 10);
+		const tui = new TUI(terminal);
+		const input = new Input();
+		const listenerInputs: string[] = [];
+		input.setValue("abc");
+		tui.addChild(input);
+		tui.setFocus(input);
+		tui.addInputListener((data) => {
+			listenerInputs.push(data);
+			return undefined;
+		});
+
+		tui.start();
+		await terminal.waitForRender();
+		assert.strictEqual(input.focused, true);
+		assert.strictEqual(input.terminalFocused, true);
+
+		terminal.clearWrites();
+		terminal.sendInput("\x1b[O");
+		await terminal.waitForRender();
+		assert.strictEqual(input.focused, true, "component focus should be preserved");
+		assert.strictEqual(input.terminalFocused, false);
+		assert.ok(!terminal.getWrites().includes("\x1b[7m"), "focus-out render should not contain a fake cursor");
+		assert.strictEqual(input.getValue(), "abc");
+
+		terminal.clearWrites();
+		terminal.sendInput("\x1b[I");
+		await terminal.waitForRender();
+		assert.strictEqual(input.terminalFocused, true);
+		assert.ok(terminal.getWrites().includes("\x1b[7m"), "focus-in render should restore the fake cursor");
+		assert.deepStrictEqual(listenerInputs, []);
 
 		tui.stop();
 	});

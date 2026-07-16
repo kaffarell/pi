@@ -258,6 +258,7 @@ export class Editor implements Component, Focusable {
 
 	/** Focusable interface - set by TUI when focus changes */
 	focused: boolean = false;
+	terminalFocused: boolean = true;
 
 	protected tui: TUI;
 	private theme: EditorTheme;
@@ -521,7 +522,7 @@ export class Editor implements Component, Focusable {
 		// Emit hardware cursor marker when focused so TUI can position the
 		// hardware cursor for IME candidate-window placement even while
 		// autocomplete (e.g. slash-command menu) is visible.
-		const emitCursorMarker = this.focused;
+		const emitCursorMarker = this.focused && this.terminalFocused;
 
 		for (const layoutLine of visibleLines) {
 			let displayText = layoutLine.text;
@@ -542,12 +543,12 @@ export class Editor implements Component, Focusable {
 					const afterGraphemes = [...this.segment(after, "grapheme")];
 					const firstGrapheme = afterGraphemes[0]?.segment || "";
 					const restAfter = after.slice(firstGrapheme.length);
-					const cursor = `\x1b[7m${firstGrapheme}\x1b[0m`;
+					const cursor = this.terminalFocused ? `\x1b[7m${firstGrapheme}\x1b[0m` : firstGrapheme;
 					displayText = before + marker + cursor + restAfter;
 					// lineVisibleWidth stays the same - we're replacing, not adding
 				} else {
-					// Cursor is at the end - add highlighted space
-					const cursor = "\x1b[7m \x1b[0m";
+					// Cursor is at the end - preserve its cell, but only highlight it while focused.
+					const cursor = this.terminalFocused ? "\x1b[7m \x1b[0m" : " ";
 					displayText = before + marker + cursor;
 					lineVisibleWidth = lineVisibleWidth + 1;
 					// If cursor overflows content width into the padding, flag it

@@ -102,8 +102,10 @@ type PendingOsc11BackgroundQuery = {
  * cursor there for proper IME candidate window positioning.
  */
 export interface Focusable {
-	/** Set by TUI when focus changes. Component should emit CURSOR_MARKER when true. */
+	/** Set by TUI when component focus changes. Component should emit CURSOR_MARKER when true. */
 	focused: boolean;
+	/** Optional state set by TUI when the containing terminal gains or loses focus. */
+	terminalFocused?: boolean;
 }
 
 /** Type guard to check if a component implements Focusable */
@@ -299,6 +301,7 @@ export class TUI extends Container {
 	private previousWidth = 0;
 	private previousHeight = 0;
 	private focusedComponent: Component | null = null;
+	private terminalFocused = true;
 	private inputListeners = new Set<InputListener>();
 
 	/** Global callback for debug key (Shift+Ctrl+D). Called before input is forwarded to focused component. */
@@ -422,6 +425,7 @@ export class TUI extends Container {
 
 		if (isFocusable(nextFocus)) {
 			nextFocus.focused = true;
+			this.setComponentTerminalFocus(nextFocus, this.terminalFocused);
 		}
 
 		const focusedOverlay = nextFocus
@@ -632,8 +636,41 @@ export class TUI extends Container {
 		for (const overlay of this.overlayStack) overlay.component.invalidate?.();
 	}
 
+	private setComponentTerminalFocus(component: Component, focused: boolean): void {
+		if (isFocusable(component) && component.terminalFocused !== undefined) {
+			component.terminalFocused = focused;
+		}
+		if (component instanceof Container) {
+			for (const child of component.children) {
+				this.setComponentTerminalFocus(child, focused);
+			}
+		}
+	}
+
+	private setTerminalFocus(focused: boolean): void {
+		if (this.terminalFocused === focused) return;
+		this.terminalFocused = focused;
+		for (const child of this.children) {
+			this.setComponentTerminalFocus(child, focused);
+		}
+		for (const overlay of this.overlayStack) {
+			this.setComponentTerminalFocus(overlay.component, focused);
+		}
+		if (!focused) {
+			this.terminal.hideCursor();
+		}
+		this.requestRender();
+	}
+
 	start(): void {
 		this.stopped = false;
+		this.terminalFocused = true;
+		for (const child of this.children) {
+			this.setComponentTerminalFocus(child, true);
+		}
+		for (const overlay of this.overlayStack) {
+			this.setComponentTerminalFocus(overlay.component, true);
+		}
 		this.terminal.start(
 			(data) => this.handleInput(data),
 			() => this.requestRender(),
@@ -763,6 +800,10 @@ export class TUI extends Container {
 			return;
 		}
 		if (this.consumeTerminalColorSchemeReport(data)) {
+			return;
+		}
+		if (data === "\x1b[I" || data === "\x1b[O") {
+			this.setTerminalFocus(data === "\x1b[I");
 			return;
 		}
 

@@ -7,6 +7,7 @@ Minimal terminal UI framework with differential rendering and synchronized outpu
 - **Differential Rendering**: Three-strategy rendering system that only updates what changed
 - **Synchronized Output**: Uses CSI 2026 for atomic screen updates (no flicker)
 - **Bracketed Paste Mode**: Handles large pastes correctly with markers for >10 line pastes
+- **Terminal Focus Reporting**: Hides text cursors when the terminal or tmux pane loses focus
 - **Component-based**: Simple Component interface with render() method
 - **Theme Support**: Components accept theme interfaces for customizable styling
 - **Built-in Components**: Text, TruncatedText, Input, Editor, Markdown, Loader, SelectList, SettingsList, Spacer, Image, Box, Container
@@ -174,12 +175,14 @@ Components that display a text cursor and need IME (Input Method Editor) support
 import { CURSOR_MARKER, type Component, type Focusable } from "@earendil-works/pi-tui";
 
 class MyInput implements Component, Focusable {
-  focused: boolean = false;  // Set by TUI when focus changes
+  focused: boolean = false;          // Set by TUI when component focus changes
+  terminalFocused: boolean = true;   // Set by TUI when terminal focus changes
   
   render(width: number): string[] {
-    const marker = this.focused ? CURSOR_MARKER : "";
-    // Emit marker right before the fake cursor
-    return [`> ${beforeCursor}${marker}\x1b[7m${atCursor}\x1b[27m${afterCursor}`];
+    const cursorVisible = this.focused && this.terminalFocused;
+    const marker = cursorVisible ? CURSOR_MARKER : "";
+    const cursor = cursorVisible ? `\x1b[7m${atCursor}\x1b[27m` : atCursor;
+    return [`> ${beforeCursor}${marker}${cursor}${afterCursor}`];
   }
 }
 ```
@@ -190,7 +193,7 @@ When a `Focusable` component has focus, TUI:
 3. Positions the hardware terminal cursor at that location
 4. Shows the hardware cursor only when `showHardwareCursor` is enabled
 
-The cursor remains hidden by default. This keeps the fake cursor rendering, while still positioning the hardware cursor for terminals that track IME candidate windows with hidden cursors. Some terminals require a visible hardware cursor for IME positioning; enable it with the `TUI` constructor option, `setShowHardwareCursor(true)`, or `PI_HARDWARE_CURSOR=1`. The `Editor` and `Input` built-in components already implement this interface.
+The cursor remains hidden by default. This keeps the fake cursor rendering, while still positioning the hardware cursor for terminals that track IME candidate windows with hidden cursors. Some terminals require a visible hardware cursor for IME positioning; enable it with the `TUI` constructor option, `setShowHardwareCursor(true)`, or `PI_HARDWARE_CURSOR=1`. The `Editor` and `Input` built-in components already implement this interface. They also hide their fake cursors when terminal focus reporting sends a focus-out event. Under tmux, enable this with `set -g focus-events on`.
 
 **Container components with embedded inputs:** When a container component (dialog, selector, etc.) contains an `Input` or `Editor` child, the container must implement `Focusable` and propagate the focus state to the child:
 

@@ -190,6 +190,33 @@ describe("ProcessTerminal Kitty keyboard protocol negotiation", () => {
 	});
 });
 
+describe("ProcessTerminal focus reporting", () => {
+	it("enables and disables focus reporting idempotently", () => {
+		const terminal = new ProcessTerminal();
+		const writes: string[] = [];
+		const previousWrite = process.stdout.write;
+		process.stdout.write = ((chunk: string | Uint8Array) => {
+			writes.push(String(chunk));
+			return true;
+		}) as typeof process.stdout.write;
+
+		try {
+			const focusReporting = terminal as unknown as {
+				enableFocusReporting(): void;
+				disableFocusReporting(): void;
+			};
+			focusReporting.enableFocusReporting();
+			focusReporting.enableFocusReporting();
+			focusReporting.disableFocusReporting();
+			focusReporting.disableFocusReporting();
+
+			assert.deepStrictEqual(writes, ["\x1b[?1004h", "\x1b[?1004l"]);
+		} finally {
+			process.stdout.write = previousWrite;
+		}
+	});
+});
+
 describe("ProcessTerminal dimensions", () => {
 	it("falls back to COLUMNS and LINES before default dimensions", () => {
 		const previousColumnsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");

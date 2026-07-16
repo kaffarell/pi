@@ -108,6 +108,7 @@ export class ProcessTerminal implements Terminal {
 	private stdinBuffer?: StdinBuffer;
 	private stdinDataHandler?: (data: string) => void;
 	private progressInterval?: ReturnType<typeof setInterval>;
+	private focusReportingEnabled = false;
 	private writeLogPath = (() => {
 		const env = process.env.PI_TUI_WRITE_LOG || "";
 		if (!env) return "";
@@ -145,6 +146,7 @@ export class ProcessTerminal implements Terminal {
 
 		// Enable bracketed paste mode - terminal will wrap pastes in \x1b[200~ ... \x1b[201~
 		process.stdout.write("\x1b[?2004h");
+		this.enableFocusReporting();
 
 		// Set up resize handler immediately
 		process.stdout.on("resize", this.resizeHandler);
@@ -329,6 +331,18 @@ export class ProcessTerminal implements Terminal {
 		this._modifyOtherKeysActive = false;
 	}
 
+	private enableFocusReporting(): void {
+		if (this.focusReportingEnabled) return;
+		process.stdout.write("\x1b[?1004h");
+		this.focusReportingEnabled = true;
+	}
+
+	private disableFocusReporting(): void {
+		if (!this.focusReportingEnabled) return;
+		process.stdout.write("\x1b[?1004l");
+		this.focusReportingEnabled = false;
+	}
+
 	/**
 	 * On Windows, add ENABLE_VIRTUAL_TERMINAL_INPUT (0x0200) to the stdin
 	 * console handle so the terminal sends VT sequences for modified keys
@@ -408,8 +422,9 @@ export class ProcessTerminal implements Terminal {
 			process.stdout.write(TERMINAL_PROGRESS_CLEAR_SEQUENCE);
 		}
 
-		// Disable bracketed paste mode
+		// Disable bracketed paste mode and focus reporting
 		process.stdout.write("\x1b[?2004l");
+		this.disableFocusReporting();
 
 		const shouldDisableKittyProtocol = this.keyboardProtocolPushed || this._kittyProtocolActive;
 		this.clearKeyboardProtocolNegotiationBuffer();

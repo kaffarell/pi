@@ -9,6 +9,7 @@ Add to `~/.tmux.conf`:
 ```tmux
 set -g extended-keys on
 set -g extended-keys-format csi-u
+set -g focus-events on
 ```
 
 Then restart tmux fully:
@@ -19,6 +20,8 @@ tmux
 ```
 
 Pi requests extended key reporting automatically when Kitty keyboard protocol is not available. With `extended-keys-format csi-u`, tmux forwards modified keys in CSI-u format, which is the most reliable configuration. The `extended-keys-format` option requires tmux 3.5 or later.
+
+`focus-events` lets pi detect when its tmux pane is no longer active. Pi uses those events to hide its editor cursor on focus-out and restore it on focus-in.
 
 ## Why `csi-u` Is Recommended
 

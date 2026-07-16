@@ -32,8 +32,8 @@ export class VirtualTerminal implements Terminal {
 	start(onInput: (data: string) => void, onResize: () => void): void {
 		this.inputHandler = onInput;
 		this.resizeHandler = onResize;
-		// Enable bracketed paste mode for consistency with ProcessTerminal
-		this.xterm.write("\x1b[?2004h");
+		// Enable bracketed paste and focus reporting for consistency with ProcessTerminal
+		this.xterm.write("\x1b[?2004h\x1b[?1004h");
 	}
 
 	async drainInput(_maxMs?: number, _idleMs?: number): Promise<void> {
@@ -41,8 +41,8 @@ export class VirtualTerminal implements Terminal {
 	}
 
 	stop(): void {
-		// Disable bracketed paste mode
-		this.xterm.write("\x1b[?2004l");
+		// Disable bracketed paste mode and focus reporting
+		this.xterm.write("\x1b[?2004l\x1b[?1004l");
 		this.inputHandler = undefined;
 		this.resizeHandler = undefined;
 	}

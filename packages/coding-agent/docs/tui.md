@@ -36,12 +36,14 @@ Components that display a text cursor and need IME (Input Method Editor) support
 import { CURSOR_MARKER, type Component, type Focusable } from "@earendil-works/pi-tui";
 
 class MyInput implements Component, Focusable {
-  focused: boolean = false;  // Set by TUI when focus changes
+  focused: boolean = false;          // Set by TUI when component focus changes
+  terminalFocused: boolean = true;   // Set by TUI when terminal focus changes
   
   render(width: number): string[] {
-    const marker = this.focused ? CURSOR_MARKER : "";
-    // Emit marker right before the fake cursor
-    return [`> ${beforeCursor}${marker}\x1b[7m${atCursor}\x1b[27m${afterCursor}`];
+    const cursorVisible = this.focused && this.terminalFocused;
+    const marker = cursorVisible ? CURSOR_MARKER : "";
+    const cursor = cursorVisible ? `\x1b[7m${atCursor}\x1b[27m` : atCursor;
+    return [`> ${beforeCursor}${marker}${cursor}${afterCursor}`];
   }
 }
 ```
@@ -52,7 +54,7 @@ When a `Focusable` component has focus, TUI:
 3. Positions the hardware terminal cursor at that location
 4. Shows the hardware cursor only when `showHardwareCursor` is enabled
 
-The cursor remains hidden by default. This keeps the fake cursor rendering, while still positioning the hardware cursor for terminals that track IME candidate windows with hidden cursors. Some terminals require a visible hardware cursor for IME positioning; enable it with `showHardwareCursor`, `setShowHardwareCursor(true)`, or `PI_HARDWARE_CURSOR=1`. The `Editor` and `Input` built-in components already implement this interface.
+The cursor remains hidden by default. This keeps the fake cursor rendering, while still positioning the hardware cursor for terminals that track IME candidate windows with hidden cursors. Some terminals require a visible hardware cursor for IME positioning; enable it with `showHardwareCursor`, `setShowHardwareCursor(true)`, or `PI_HARDWARE_CURSOR=1`. The `Editor` and `Input` built-in components already implement this interface. They hide their fake cursors when `terminalFocused` is false. Under tmux, terminal focus events require `set -g focus-events on`.
 
 ### Container Components with Embedded Inputs
 

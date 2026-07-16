@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Hid input and editor cursors when the terminal or tmux pane loses focus.
+
 ## [0.80.7] - 2026-07-14
 
 ### Fixed
